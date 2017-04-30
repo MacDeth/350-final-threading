@@ -3,8 +3,8 @@
     800112091
     jmdangelo@mix.wvu.edu
   Taylor Miller
-    555555555
-    example@mix.wvu.edu
+    800112547
+    tamiller1@mix.wvu.edu
 */
 
 #include <stdlib.h>
@@ -12,60 +12,69 @@
 #include "queue.h"
 #include "job.h"
 
-/* I made a fucking stack instead of a queue because I'm retarded. */
 
 Queue* CreateQueue() {
   Queue* temp = (Queue*) malloc(sizeof(Queue));
 
   temp->first = NULL;
   temp->size = 0;
-
+  pthread_mutex_init(&temp->mutex, NULL);
   return temp;
 }
 
 void DestroyQueue(Queue* queue) {
   if (!queue) return;
-  Job* current = queue->first;
-  Job* temp = NULL;
+  Job* temp;
 
-  do {
-    temp = current;
-    current = current->next;
-    free(temp);
-  } while(current->next);
+  while(queue->size > 0)
+  {
+	  temp = Dequeue(queue);
+	  free(temp);
+  }
 
-  free(current);
   free(queue);
 }
 
 void Enqueue(Queue* queue, Job* job) {
   if (!queue || !job) return;
+  pthread_mutex_lock(&queue->mutex);
+  Job* temp = queue->first;
 
-  job->next = queue->first;
-  queue->first = job;
+  if(queue->first == NULL)
+  {
+	  queue->first = job;
+  }
+  else
+  {
+	  while(temp->next != NULL)
+		  temp = temp->next;
+
+	  temp->next = job;
+  }
 
   queue->size++;
+  pthread_mutex_unlock(&queue->mutex);
 }
 
 Job* Dequeue(Queue* queue) {
   if (!queue) return NULL;
-  Job* last = queue->first;
-  Job* prev = NULL;
+  if(queue->first == NULL) return NULL;
 
-  if (last) {
-    while (last->next) {
-      prev = last;
-      last = last->next;
-    }
+  pthread_mutex_lock(&queue->mutex);
+  Job* temp = queue->first;
+  queue->first = temp->next;
+  queue->size--;
+  pthread_mutex_unlock(&queue->mutex);
 
-    prev->next = NULL;
-    queue->size--;
-  }
-
-  return last;
+  return temp;
 }
 
 int GetQueueSize(Queue* queue) {
-  if (!queue) return 0;
-  return queue->size;
+  if (!queue) return -1;
+  int size;
+
+  pthread_mutex_lock(&queue->mutex);
+  size = queue->size;
+  pthread_mutex_unlock(&queue->mutex);
+  return size;
 }
